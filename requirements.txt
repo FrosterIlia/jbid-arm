@@ -1,4 +1,4 @@
-can==0.0.0
+python-can
 cmeel==0.61.0
 cmeel-assimp==6.0.5
 cmeel-boost==1.90.0

@@ -3,19 +3,19 @@ from utilities import SetpointLimiter
 
 
 class ArmHardware:
-    HOME = {"j1": 0.0, "j2": 0.0, "j3": 0.0, "j4": 0.0, "j5": 0.0, "j6": 0.0, "j7": 0.0}
+    HOME = {"j1": 0.0, "j2": 0.0, "j3": 0.0, "j4": 0.0, "j5": 0.0, "j6": 0.0, "j7": 3.0}
     LIMITS = {
         "j1": (-2.8, 2.8),
-        "j2": (0, 3.14),
-        "j3": (0, 3.14),
+        "j2": (0, 1),
+        "j3": (0, 1.4),
         "j4": (-1.57, 1.57),
         "j5": (-1.57, 1.57),
-        "j6": (-3.14, 3.14),
+        "j6": (1, 4),
         "j7": (-1.5, 1.5),
     }
 
     KP, KD = 10.0, 1.0
-    TORQUE_LIMIT = 3.0 #Nm
+    TORQUE_LIMIT = 10.0 #Nm
 
     # TODO: tune
     MAX_VEL = 1.0    # rad/s, slew rate of the commanded position
@@ -63,6 +63,7 @@ class ArmHardware:
             self.bus.set_run_mode(name, 0)
             self.bus.write(name, ParameterType.TORQUE_LIMIT, self.TORQUE_LIMIT)
             self.bus.enable(name)
+        self.bus.write(self.names[2], ParameterType.TORQUE_LIMIT, 12)
 
     def disable_all(self):
         errors = []
