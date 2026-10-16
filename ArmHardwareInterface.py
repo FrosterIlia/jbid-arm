@@ -18,7 +18,7 @@ class ArmHardware:
     TORQUE_LIMIT = 15.0 #Nm
 
     # TODO: tune
-    MAX_VEL = 1.0    # rad/s, slew rate of the commanded position
+    MAX_VEL = 0.2    # rad/s, slew rate of the commanded position
     MAX_ERROR = 0.5  # rad, max gap between commanded and measured position
     MAX_DT = 0.1     # s, caps the time step so a stalled loop can't cause a jump
 
@@ -83,17 +83,23 @@ class ArmHardware:
             states[name] = (pos, vel)
         return states
 
-    def set_joint_targets(self, angles):
+    def set_joint_targets(self, angles, torques=None):
+        """torques: optional feedforward torque (Nm) per joint, e.g. gravity compensation."""
         if len(angles) != len(self.names):
             raise ValueError(f"expected {len(self.names)} targets, got {len(angles)}")
+        if torques is None:
+            torques = [0.0] * len(self.names)
+        elif len(torques) != len(self.names):
+            raise ValueError(f"expected {len(self.names)} feedforward torques, got {len(torques)}")
 
         if self._measured is None:
             self._sync()
 
         feedback = {}
-        for name, goal in zip(self.names, angles):
+        for name, goal, torque in zip(self.names, angles, torques):
             cmd = self._limiters[name].update(goal, self._measured[name])
-            self.bus.write_operation_frame(name, position=cmd, kp=self.KP, kd=self.KD)
+            torque = max(-self.TORQUE_LIMIT, min(self.TORQUE_LIMIT, float(torque)))
+            self.bus.write_operation_frame(name, position=cmd, kp=self.KP, kd=self.KD, torque=torque)
             feedback[name] = self.bus.read_operation_frame(name)
             self._measured[name] = feedback[name][0]
         return feedback

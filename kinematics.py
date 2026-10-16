@@ -35,6 +35,11 @@ class KinematicsSolver:
         pin.framesForwardKinematics(self.model, self.data, q)
         return self.data.oMf[self.ee_frame_id].copy()
 
+    def gravity_torques(self, q):
+        """Torque (Nm) each of the 6 joints needs to hold the arm still at q, from the URDF inertias."""
+        q = self._check_q(q)
+        return pin.computeGeneralizedGravity(self.model, self.data, q).copy()
+
     def inverse_kinematics(self, target, q0=None, max_iters=1000, tol=1e-4, dt=0.1, damping=1e-6):
         q = np.clip(self._check_q(q0) if q0 is not None else pin.neutral(self.model), self.lower_limit, self.upper_limit)
 
