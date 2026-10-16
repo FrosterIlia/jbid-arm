@@ -3,15 +3,14 @@ from utilities import SetpointLimiter
 
 
 class ArmHardware:
-    # TODO: placeholder values, measure on the real arm before enabling torque
     HOME = {"j1": 0.0, "j2": 0.0, "j3": 0.0, "j4": 0.0, "j5": 0.0, "j6": 0.0, "j7": 0.0}
     LIMITS = {
-        "j1": (-1.5, 1.5),
-        "j2": (-1.5, 1.5),
-        "j3": (-1.5, 1.5),
-        "j4": (-1.5, 1.5),
-        "j5": (-1.5, 1.5),
-        "j6": (-1.5, 1.5),
+        "j1": (-2.8, 2.8),
+        "j2": (0, 3.14),
+        "j3": (0, 3.14),
+        "j4": (-1.57, 1.57),
+        "j5": (-1.57, 1.57),
+        "j6": (-3.14, 3.14),
         "j7": (-1.5, 1.5),
     }
 
