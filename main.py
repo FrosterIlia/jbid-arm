@@ -39,8 +39,6 @@ def log_state(joint_states):
 
 
 CAM_TO_EE = np.array([[0.0, 0.0, 1.0], [-1.0, 0.0, 0.0], [0.0, -1.0, 0.0]])
-GAIN = 0.3
-MAX_DRIFT = 0.15
 DEAD_ZONE = 0.08     # m, the arm holds still while the marker is this close to MARKER_REF
 LOST_TIMEOUT = 0.5   # s without the marker before going home
 
@@ -49,7 +47,7 @@ MARKER_REF = np.array([0, 0, 0.4])
 target_pos = np.array(TARGET_POSITION, dtype=float)
 target_rot = np.array(TARGET_ROTATION)
 
-debug = DebugView(position_estimator, CAM_TO_EE, MARKER_REF, TARGET_POSITION, MAX_DRIFT, GAIN, arm,
+debug = DebugView(position_estimator, CAM_TO_EE, MARKER_REF, TARGET_POSITION, arm,
                   dead_zone=DEAD_ZONE, lost_timeout=LOST_TIMEOUT)
 last_seen = time.monotonic()
 
@@ -70,10 +68,9 @@ try:
             if np.linalg.norm(error) > DEAD_ZONE:
                 err_base = fk.rotation @ CAM_TO_EE @ error
 
-                target_pos = target_pos + GAIN * err_base
-                target_pos = np.clip(target_pos,
-                                     np.array(TARGET_POSITION) - MAX_DRIFT,
-                                     np.array(TARGET_POSITION) + MAX_DRIFT)
+                target_pos = fk.translation + err_base
+            else:
+                target_pos = fk.translation.copy()
         elif time.monotonic() - last_seen > LOST_TIMEOUT:
             target_pos = np.array(TARGET_POSITION, dtype=float)
 

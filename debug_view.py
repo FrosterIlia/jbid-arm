@@ -76,7 +76,7 @@ def _segments(mask):
 
 
 class DebugView:
-    def __init__(self, estimator, cam_to_ee, marker_ref, home_pos, max_drift, gain, arm,
+    def __init__(self, estimator, cam_to_ee, marker_ref, home_pos, arm,
                  marker_id=1, window="arm debug", history_s=10.0, view_half=0.25, snapshot_dir="debug_snapshots",
                  log_dir="logs", dead_zone=0.0, lost_timeout=None):
         self.estimator = estimator
@@ -86,8 +86,6 @@ class DebugView:
         self.cam_to_ee = np.asarray(cam_to_ee, float)
         self.marker_ref = np.asarray(marker_ref, float)
         self.home = np.asarray(home_pos, float)
-        self.max_drift = max_drift
-        self.gain = gain
         self.dead_zone = dead_zone
         self.lost_timeout = lost_timeout
         self.arm = arm
@@ -153,7 +151,7 @@ class DebugView:
             self.last_seen = now
             marker_pos = np.asarray(marker_pos, float)
             err = rot @ self.cam_to_ee @ (marker_pos - self.marker_ref)
-            step = np.zeros(3) if self._in_dead_zone(marker_pos) else self.gain * err
+            step = np.zeros(3) if self._in_dead_zone(marker_pos) else err
             # ignores the camera's offset from the EE origin, constant while orientation is held
             marker_world = ee + rot @ self.cam_to_ee @ marker_pos
         if not ik_ok:
@@ -176,7 +174,7 @@ class DebugView:
         self._draw_view(self._sub(TOP_RECT), h, axes=(1, 0), signs=(-1, -1), title="TOP  (looking down)",
                         legend=[("EE", TEXT, "ring"), ("target", CYAN, "dot"), ("marker", MAGENTA, "square")])
         self._draw_view(self._sub(SIDE_RECT), h, axes=(0, 2), signs=(1, -1), title="SIDE  (looking from -y)",
-                        legend=[("error", YELLOW, "arrow"), ("correction", GREEN, "arrow"), ("drift limit", ORANGE, "box")])
+                        legend=[("error", YELLOW, "arrow"), ("correction", GREEN, "arrow")])
         self._draw_plots(self._sub(PLOT_RECT), h)
         self._draw_status(self._sub(STATUS_RECT), h)
         for x, y, w, hh in (CAM_RECT, STATUS_RECT, TOP_RECT, SIDE_RECT, PLOT_RECT):
@@ -204,7 +202,7 @@ class DebugView:
         arm = self.arm
         config = dict(
             cam_to_ee=self.cam_to_ee.tolist(), marker_ref=self.marker_ref.tolist(), home_pos=self.home.tolist(),
-            max_drift=self.max_drift, gain=self.gain, marker_id=self.marker_id, marker_length=self.marker_length,
+            marker_id=self.marker_id, marker_length=self.marker_length,
             camera_matrix=np.asarray(self.K).tolist(), dist_coeffs=np.asarray(self.dist).ravel().tolist(),
             joint_limits=getattr(arm, "limits", None),
             arm={k: getattr(arm, k, None) for k in ("KP", "KD", "TORQUE_LIMIT", "MAX_VEL", "MAX_ERROR", "MAX_DT")},
@@ -437,8 +435,6 @@ class DebugView:
             cv2.line(panel, _pt((cx + k * scale, 0)), _pt((cx + k * scale, ph)), color, 1)
             cv2.line(panel, _pt((0, cy + k * scale)), _pt((pw, cy + k * scale)), color, 1)
 
-        d = np.full(3, self.max_drift)
-        cv2.rectangle(panel, _pt(px(self.home - d)), _pt(px(self.home + d)), ORANGE, 1, AA)
         cv2.drawMarker(panel, _pt(px(self.home)), DIM, cv2.MARKER_TILTED_CROSS, 10, 1, AA)
         _text(panel, "home", np.add(px(self.home), (6, 14)), DIM, 0.35)
 
@@ -498,8 +494,7 @@ class DebugView:
         strip = ph // 3
         lag = np.linalg.norm(h["target"] - h["ee"], axis=1)[:, None]
         self._plot(panel[0:strip], h["t"], h["err"], "error, base frame (m)")
-        self._plot(panel[strip:2 * strip], h["t"], h["target"] - self.home, "target - home (m)",
-                   hlines=(-self.max_drift, self.max_drift))
+        self._plot(panel[strip:2 * strip], h["t"], h["target"] - self.home, "target - home (m)")
         self._plot(panel[2 * strip:], h["t"], lag, "|target - EE|  tracking lag (m)", colors=(TEXT,),
                    symmetric=False, bands=(("marker", h["seen"]), ("IK", h["ik_ok"])), time_axis=True)
 
@@ -565,12 +560,10 @@ class DebugView:
         line("EE      " + _vec(s["ee"]))
         line("target  " + _vec(s["target"]), CYAN)
         offset = s["target"] - self.home
-        clamped = [AXIS_NAMES[i] for i in range(3) if abs(offset[i]) >= self.max_drift - 1e-6]
-        line("offset  " + _vec(offset) + (f"   CLAMPED {' '.join(clamped)}" if clamped else ""),
-             RED if clamped else TEXT)
+        line("offset  " + _vec(offset))
         if s["err"] is not None:
             line("error   " + _vec(s["err"]) + f"   |e| {np.linalg.norm(s['err']) * 1000:.0f} mm", YELLOW)
-            hold = "   dead zone: holding" if self._in_dead_zone(s["marker_pos"]) else f"   (gain {self.gain})"
+            hold = "   dead zone: holding" if self._in_dead_zone(s["marker_pos"]) else ""
             line("step    " + _vec(s["step"]) + hold, GREEN)
         else:
             action = self._lost_text()[1] if self.last_seen is not None else "target frozen"
@@ -599,8 +592,6 @@ class DebugView:
         hints = []
         if self.marker_ref[2] <= 0:
             hints.append("MARKER_REF z <= 0: ref must be in front of the camera")
-        if clamped and lag > 0.03:
-            hints.append("target pinned at the drift limit while EE lags: integrator windup")
         if flipped:
             hints.append(f"axis {' '.join(flipped)} looks flipped in CAM_TO_EE")
         if not s["ik_ok"]:
