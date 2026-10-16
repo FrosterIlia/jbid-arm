@@ -1,12 +1,12 @@
 import math, time
 from robstride_dynamics import RobstrideBus, Motor, ParameterType
+from constants import *
 
 NAME = "j1"
 bus = RobstrideBus("pcan0", motors={NAME: Motor(id=1, model="rs-05")})
 bus.connect()
 
-KP, KD = 10.0, 1.0   # spring stiffness (Nm/rad) and damping (Nm per rad/s)
-DT = 0.01            # 100 Hz loop
+
 
 def send(target, kp, kd, vel=0.0):
     bus.write_operation_frame(NAME, position=target, kp=kp, kd=kd, velocity=vel, torque=0)
