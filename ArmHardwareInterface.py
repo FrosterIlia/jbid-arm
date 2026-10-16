@@ -18,7 +18,7 @@ class ArmHardware:
     TORQUE_LIMIT = 15.0 #Nm
 
     # TODO: tune
-    MAX_VEL = 0.2    # rad/s, slew rate of the commanded position
+    MAX_VEL = 0.05    # rad/s, slew rate of the commanded position
     MAX_ERROR = 0.5  # rad, max gap between commanded and measured position
     MAX_DT = 0.1     # s, caps the time step so a stalled loop can't cause a jump
 

@@ -12,7 +12,7 @@ from debug_view import DebugView
 arm = ArmHardware("pcan0")
 kinematics = KinematicsSolver("urdf/ReBot_Arm_RS.urdf")
 camera = CameraStream(0, 640, 480, 30)
-position_estimator = PositionEstimator(0.42)
+position_estimator = PositionEstimator(0.042)
 
 arm.enable_all()
 
@@ -44,7 +44,7 @@ MAX_DRIFT = 0.15
 DEAD_ZONE = 0.08     # m, the arm holds still while the marker is this close to MARKER_REF
 LOST_TIMEOUT = 0.5   # s without the marker before going home
 
-MARKER_REF = np.array([0, 0, 0.1])
+MARKER_REF = np.array([0, 0, 0.4])
 
 target_pos = np.array(TARGET_POSITION, dtype=float)
 target_rot = np.array(TARGET_ROTATION)

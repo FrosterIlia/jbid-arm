@@ -326,20 +326,14 @@ class DebugView:
 
         cv2.drawMarker(img, _pt((K[0, 2], K[1, 2])), DIM, cv2.MARKER_CROSS, 24, 1, AA)
 
+        marker = s["marker_pos"]
+        holding = marker is not None and self._in_dead_zone(marker)
         ref_ok = self.marker_ref[2] > 1e-3
         ref_px = None
         if ref_ok:
             ref_px = self._project(self.marker_ref, K)[0]
-            hl = self.marker_length / 2
-            square = self.marker_ref + np.array([[-hl, -hl, 0], [hl, -hl, 0], [hl, hl, 0], [-hl, hl, 0]])
-            cv2.polylines(img, [self._project(square, K).astype(np.int32)], True, CYAN, 1, AA)
-            cv2.drawMarker(img, _pt(ref_px), CYAN, cv2.MARKER_CROSS, 18, 2, AA)
-            if self.dead_zone > 0:
-                radius = K[0, 0] * self.dead_zone / self.marker_ref[2]
-                cv2.circle(img, _pt(ref_px), max(int(radius), 2), CYAN, 1, AA)
-            _label(img, "ref", ref_px + (8, -8), CYAN)
+            self._draw_ref(img, K, ref_px, GREEN if holding else CYAN)
 
-        marker = s["marker_pos"]
         det = self._detect(frame) if marker is not None else None
         if det is not None:
             corners, rvec, tvec = det
@@ -348,7 +342,7 @@ class DebugView:
         if marker is not None:
             center = self._project(marker, K)[0]
             cv2.circle(img, _pt(center), 5, GREEN, -1, AA)
-            if ref_px is not None:
+            if ref_px is not None and not holding:
                 _arrow(img, center, ref_px, YELLOW, 2)
 
         if marker is not None:
@@ -374,6 +368,36 @@ class DebugView:
         self._draw_depth_gauge(img, marker)
         panel[:] = img
 
+    def _draw_ref(self, img, K, ref_px, color):
+        ph, pw = img.shape[:2]
+        c = np.asarray(ref_px, float)
+
+        if self.dead_zone > 0:
+            radius = max(int(K[0, 0] * self.dead_zone / self.marker_ref[2]), 3)
+            shade = img.copy()
+            cv2.circle(shade, _pt(c), radius, color, -1, AA)
+            cv2.addWeighted(shade, 0.22, img, 0.78, 0, dst=img)
+            cv2.circle(img, _pt(c), radius, color, 2, AA)
+            _label(img, f"dead zone {self.dead_zone * 100:.1f} cm", c + (radius * 0.72 + 4, -radius * 0.72 - 4), color, 0.42)
+
+        # expected marker outline at MARKER_REF, as corner brackets
+        hl = self.marker_length / 2
+        square = self._project(self.marker_ref + np.array([[-hl, -hl, 0], [hl, -hl, 0], [hl, hl, 0], [-hl, hl, 0]]), K)
+        if np.ptp(square[:, 0]) < 1.5 * pw and np.ptp(square[:, 1]) < 1.5 * ph:
+            for i in range(4):
+                p, prev, nxt = square[i], square[i - 1], square[(i + 1) % 4]
+                cv2.line(img, _pt(p), _pt(p + (prev - p) * 0.25), color, 2, AA)
+                cv2.line(img, _pt(p), _pt(p + (nxt - p) * 0.25), color, 2, AA)
+        else:
+            _label(img, "expected marker outline bigger than the view: check marker_length", (10, 46), YELLOW, 0.42)
+
+        for d in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            d = np.array(d, float)
+            cv2.line(img, _pt(c + d * 7), _pt(c + d * 24), (0, 0, 0), 4, AA)
+            cv2.line(img, _pt(c + d * 7), _pt(c + d * 24), color, 2, AA)
+        cv2.circle(img, _pt(c), 3, color, -1, AA)
+        _label(img, f"MARKER_REF  {self.marker_ref[2]:.2f} m", c + (-62, 44), color, 0.45)
+
     def _draw_depth_gauge(self, img, marker):
         ph, pw = img.shape[:2]
         x, top, bottom = pw - 26, 50, ph - 90
@@ -384,8 +408,12 @@ class DebugView:
         cv2.rectangle(img, (x - 6, top), (x + 6, bottom), DIM, 1)
         _label(img, "depth", (x - 22, top - 10), DIM, 0.38)
         if self.marker_ref[2] > 0:
+            color = GREEN if marker is not None and self._in_dead_zone(marker) else CYAN
+            if self.dead_zone > 0:
+                y0, y1 = to_y(self.marker_ref[2] + self.dead_zone), to_y(self.marker_ref[2] - self.dead_zone)
+                cv2.rectangle(img, _pt((x - 6, y0)), _pt((x + 6, max(y1, y0 + 2))), color, -1)
             y = to_y(self.marker_ref[2])
-            cv2.line(img, _pt((x - 12, y)), _pt((x + 12, y)), CYAN, 2)
+            cv2.line(img, _pt((x - 12, y)), _pt((x + 12, y)), color, 2)
         if depth is not None:
             y = to_y(depth)
             cv2.circle(img, _pt((x, y)), 6, GREEN, -1, AA)
