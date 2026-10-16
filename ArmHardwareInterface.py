@@ -14,12 +14,12 @@ class ArmHardware:
         "j7": (-1.5, 1.5),
     }
 
-    KP, KD = 10.0, 1.0
-    TORQUE_LIMIT = 10.0 #Nm
+    KP, KD = 17.0, 1.0
+    TORQUE_LIMIT = 15.0 #Nm
 
     # TODO: tune
     MAX_VEL = 1.0    # rad/s, slew rate of the commanded position
-    MAX_ERROR = 0.2  # rad, max gap between commanded and measured position
+    MAX_ERROR = 0.5  # rad, max gap between commanded and measured position
     MAX_DT = 0.1     # s, caps the time step so a stalled loop can't cause a jump
 
     def __init__(self, can):
@@ -63,7 +63,7 @@ class ArmHardware:
             self.bus.set_run_mode(name, 0)
             self.bus.write(name, ParameterType.TORQUE_LIMIT, self.TORQUE_LIMIT)
             self.bus.enable(name)
-        self.bus.write(self.names[2], ParameterType.TORQUE_LIMIT, 12)
+        self.bus.write(self.names[2], ParameterType.TORQUE_LIMIT, 15)
 
     def disable_all(self):
         errors = []
