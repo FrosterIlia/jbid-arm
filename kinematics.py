@@ -21,8 +21,8 @@ class KinematicsSolver:
             raise ValueError(f"frame {ee_frame!r} not found in {urdf_path}")
         self.ee_frame_id = self.model.getFrameId(ee_frame)
 
-        self.lower = self.model.lowerPositionLimit.copy()
-        self.upper = self.model.upperPositionLimit.copy()
+        self.lower_limit = self.model.lowerPositionLimit.copy()
+        self.upper_limit = self.model.upperPositionLimit.copy()
 
     def _check_q(self, q):
         q = np.asarray(q, dtype=float)
@@ -36,7 +36,7 @@ class KinematicsSolver:
         return self.data.oMf[self.ee_frame_id].copy()
 
     def inverse_kinematics(self, target, q0=None, max_iters=1000, tol=1e-4, dt=0.1, damping=1e-6):
-        q = np.clip(self._check_q(q0) if q0 is not None else pin.neutral(self.model), self.lower, self.upper)
+        q = np.clip(self._check_q(q0) if q0 is not None else pin.neutral(self.model), self.lower_limit, self.upper_limit)
 
         for _ in range(max_iters):
             pin.framesForwardKinematics(self.model, self.data, q)
@@ -48,6 +48,6 @@ class KinematicsSolver:
             J = pin.computeFrameJacobian(self.model, self.data, q, self.ee_frame_id)
             J = -pin.Jlog6(iMd.inverse()) @ J
             v = -J.T @ np.linalg.solve(J @ J.T + damping * np.eye(6), err)
-            q = np.clip(pin.integrate(self.model, q, v * dt), self.lower, self.upper)
+            q = np.clip(pin.integrate(self.model, q, v * dt), self.lower_limit, self.upper_limit)
 
         return q, False
